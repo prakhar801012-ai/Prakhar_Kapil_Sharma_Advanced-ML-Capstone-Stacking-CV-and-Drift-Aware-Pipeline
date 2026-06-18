@@ -1,8 +1,6 @@
 streamlit
+openai
 pandas
 numpy
-scikit-learn
-tensorflow
-pillow
-openai
 matplotlib
+scikit-learn
