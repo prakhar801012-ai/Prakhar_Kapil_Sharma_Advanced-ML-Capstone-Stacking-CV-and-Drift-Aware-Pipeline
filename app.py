@@ -1,29 +1,34 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-
-from PIL import Image
-
-from sklearn.model_selection import train_test_split
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import accuracy_score
-
-import tensorflow as tf
+import matplotlib.pyplot as plt
 
 from openai import OpenAI
 
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import (
+    RandomForestClassifier,
+    RandomForestRegressor
+)
+from sklearn.metrics import (
+    accuracy_score,
+    classification_report,
+    mean_squared_error,
+    r2_score
+)
+
 # --------------------------------------------------
-# PAGE
+# PAGE CONFIG
 # --------------------------------------------------
 
 st.set_page_config(
-    page_title="AI Multi-Agent Platform",
+    page_title="AI + ML Multi-Agent Platform",
     page_icon="🤖",
     layout="wide"
 )
 
 # --------------------------------------------------
-# OPENAI
+# OPENAI CLIENT
 # --------------------------------------------------
 
 @st.cache_resource
@@ -40,20 +45,7 @@ MODEL = st.secrets.get(
 )
 
 # --------------------------------------------------
-# SESSION STATE
-# --------------------------------------------------
-
-for key in [
-    "plan",
-    "research",
-    "review",
-    "summary"
-]:
-    if key not in st.session_state:
-        st.session_state[key] = ""
-
-# --------------------------------------------------
-# AGENTS
+# AI HELPER
 # --------------------------------------------------
 
 def ask_agent(prompt):
@@ -65,16 +57,36 @@ def ask_agent(prompt):
 
     return response.output_text
 
+# --------------------------------------------------
+# SESSION STATE
+# --------------------------------------------------
+
+defaults = {
+    "plan": "",
+    "research": "",
+    "review": "",
+    "summary": ""
+}
+
+for k, v in defaults.items():
+    if k not in st.session_state:
+        st.session_state[k] = v
 
 # --------------------------------------------------
 # HEADER
 # --------------------------------------------------
 
-st.title("🤖 AI Multi-Agent Research Platform")
+st.title("🤖 AI + ML Multi-Agent Platform")
 
-st.caption(
-    "OpenAI + ML + CNN + Streamlit"
-)
+st.markdown("""
+This platform combines:
+
+- Planner Agent
+- Research Agent
+- Machine Learning Agent
+- Reviewer Agent
+- Executive Summary Agent
+""")
 
 # --------------------------------------------------
 # TABS
@@ -83,45 +95,50 @@ st.caption(
 tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "Planner",
     "Research",
-    "Machine Learning",
-    "CNN",
+    "ML Training",
+    "Reviewer",
     "Summary"
 ])
 
-# --------------------------------------------------
+# ==================================================
 # PLANNER
-# --------------------------------------------------
+# ==================================================
 
 with tab1:
 
     st.subheader("Planner Agent")
 
     goal = st.text_area(
-        "Project Goal"
+        "Describe your AI/ML project"
     )
 
     if st.button("Generate Plan"):
 
-        with st.spinner("Planning..."):
+        with st.spinner("Generating plan..."):
 
             st.session_state.plan = ask_agent(
                 f"""
-                Create a detailed project plan:
+                You are an AI Project Planner.
+
+                Create a detailed roadmap for:
 
                 {goal}
+
+                Include:
+                - Data Collection
+                - Data Cleaning
+                - Model Training
+                - Evaluation
+                - Deployment
                 """
             )
 
-        st.success("Done")
-
     if st.session_state.plan:
-        st.write(
-            st.session_state.plan
-        )
+        st.markdown(st.session_state.plan)
 
-# --------------------------------------------------
+# ==================================================
 # RESEARCH
-# --------------------------------------------------
+# ==================================================
 
 with tab2:
 
@@ -131,7 +148,7 @@ with tab2:
         "Research Topic"
     )
 
-    if st.button("Research Topic"):
+    if st.button("Research"):
 
         with st.spinner("Researching..."):
 
@@ -142,27 +159,29 @@ with tab2:
                 {topic}
 
                 Return:
-                - concepts
-                - libraries
-                - best practices
+
+                - Key Concepts
+                - Useful Libraries
+                - Best Practices
+                - Common Pitfalls
                 """
             )
 
     if st.session_state.research:
-        st.write(
+        st.markdown(
             st.session_state.research
         )
 
-# --------------------------------------------------
+# ==================================================
 # ML AGENT
-# --------------------------------------------------
+# ==================================================
 
 with tab3:
 
     st.subheader("Machine Learning Agent")
 
     csv_file = st.file_uploader(
-        "Upload CSV",
+        "Upload CSV Dataset",
         type=["csv"]
     )
 
@@ -170,28 +189,30 @@ with tab3:
 
         df = pd.read_csv(csv_file)
 
-        st.dataframe(
-            df.head()
-        )
+        st.write("Dataset Preview")
+        st.dataframe(df.head())
 
         target = st.selectbox(
-            "Target Column",
+            "Select Target Column",
             df.columns
         )
 
-        if st.button("Train Random Forest"):
+        model_type = st.radio(
+            "Problem Type",
+            [
+                "Classification",
+                "Regression"
+            ]
+        )
+
+        if st.button("Train Model"):
 
             try:
 
-                X = df.drop(
-                    columns=[target]
-                )
-
-                X = pd.get_dummies(
-                    X
-                )
-
+                X = df.drop(columns=[target])
                 y = df[target]
+
+                X = pd.get_dummies(X)
 
                 X_train, X_test, y_train, y_test = train_test_split(
                     X,
@@ -200,120 +221,151 @@ with tab3:
                     random_state=42
                 )
 
-                model = RandomForestClassifier()
+                if model_type == "Classification":
 
-                model.fit(
-                    X_train,
-                    y_train
+                    model = RandomForestClassifier(
+                        n_estimators=200,
+                        random_state=42
+                    )
+
+                    model.fit(
+                        X_train,
+                        y_train
+                    )
+
+                    predictions = model.predict(
+                        X_test
+                    )
+
+                    accuracy = accuracy_score(
+                        y_test,
+                        predictions
+                    )
+
+                    st.success(
+                        f"Accuracy: {accuracy:.4f}"
+                    )
+
+                    st.text(
+                        classification_report(
+                            y_test,
+                            predictions
+                        )
+                    )
+
+                else:
+
+                    model = RandomForestRegressor(
+                        n_estimators=200,
+                        random_state=42
+                    )
+
+                    model.fit(
+                        X_train,
+                        y_train
+                    )
+
+                    predictions = model.predict(
+                        X_test
+                    )
+
+                    mse = mean_squared_error(
+                        y_test,
+                        predictions
+                    )
+
+                    r2 = r2_score(
+                        y_test,
+                        predictions
+                    )
+
+                    st.success(
+                        f"R² Score: {r2:.4f}"
+                    )
+
+                    st.write(
+                        f"MSE: {mse:.4f}"
+                    )
+
+                # FEATURE IMPORTANCE
+
+                importance = pd.DataFrame({
+                    "Feature": X.columns,
+                    "Importance": model.feature_importances_
+                })
+
+                importance = importance.sort_values(
+                    "Importance",
+                    ascending=False
+                ).head(15)
+
+                st.subheader(
+                    "Feature Importance"
                 )
 
-                pred = model.predict(
-                    X_test
+                fig, ax = plt.subplots()
+
+                ax.barh(
+                    importance["Feature"],
+                    importance["Importance"]
                 )
 
-                acc = accuracy_score(
-                    y_test,
-                    pred
-                )
+                ax.invert_yaxis()
 
-                st.success(
-                    f"Accuracy: {acc:.4f}"
-                )
+                st.pyplot(fig)
+
+                st.session_state.review = f"""
+                Model Type: {model_type}
+
+                Dataset Rows: {len(df)}
+
+                Top Features:
+
+                {importance.to_string()}
+                """
 
             except Exception as e:
+
                 st.error(str(e))
 
-# --------------------------------------------------
-# CNN
-# --------------------------------------------------
+# ==================================================
+# REVIEWER
+# ==================================================
 
 with tab4:
 
-    st.subheader(
-        "CNN Image Processing"
-    )
+    st.subheader("Reviewer Agent")
 
-    image_file = st.file_uploader(
-        "Upload Image",
-        type=["png", "jpg", "jpeg"]
-    )
+    if st.button("Review ML Results"):
 
-    if image_file:
+        if st.session_state.review:
 
-        image = Image.open(
-            image_file
-        )
+            with st.spinner("Reviewing..."):
 
-        st.image(
-            image,
-            use_container_width=True
-        )
+                review_text = ask_agent(
+                    f"""
+                    Review this ML project:
 
-        img = image.resize(
-            (128, 128)
-        )
+                    {st.session_state.review}
 
-        img_array = np.array(
-            img
-        ) / 255.0
-
-        img_array = np.expand_dims(
-            img_array,
-            axis=0
-        )
-
-        @st.cache_resource
-        def build_cnn():
-
-            return tf.keras.Sequential([
-                tf.keras.layers.Input(
-                    shape=(128,128,3)
-                ),
-
-                tf.keras.layers.Conv2D(
-                    32,
-                    3,
-                    activation="relu"
-                ),
-
-                tf.keras.layers.MaxPool2D(),
-
-                tf.keras.layers.Conv2D(
-                    64,
-                    3,
-                    activation="relu"
-                ),
-
-                tf.keras.layers.MaxPool2D(),
-
-                tf.keras.layers.Flatten(),
-
-                tf.keras.layers.Dense(
-                    128,
-                    activation="relu"
-                ),
-
-                tf.keras.layers.Dense(
-                    2,
-                    activation="softmax"
+                    Provide:
+                    - Weaknesses
+                    - Improvements
+                    - Suggested Algorithms
+                    - Deployment Advice
+                    """
                 )
-            ])
 
-        cnn_model = build_cnn()
+                st.session_state.review = review_text
 
-        st.success(
-            "CNN model loaded."
+    if st.session_state.review:
+        st.markdown(
+            st.session_state.review
         )
 
-        st.code(
-            cnn_model.summary(
-                print_fn=lambda x: x
-            )
-        )
-
-# --------------------------------------------------
+# ==================================================
 # SUMMARY
-# --------------------------------------------------
+# ==================================================
 
 with tab5:
 
@@ -322,11 +374,11 @@ with tab5:
     )
 
     findings = st.text_area(
-        "Paste Findings"
+        "Paste project findings"
     )
 
     if st.button(
-        "Generate Summary"
+        "Generate Executive Summary"
     ):
 
         with st.spinner(
@@ -335,13 +387,21 @@ with tab5:
 
             st.session_state.summary = ask_agent(
                 f"""
-                Create executive summary:
+                Create an executive summary.
+
+                Findings:
 
                 {findings}
+
+                Include:
+                - Objective
+                - Results
+                - Business Impact
+                - Recommendations
                 """
             )
 
     if st.session_state.summary:
-        st.write(
+        st.markdown(
             st.session_state.summary
         )
